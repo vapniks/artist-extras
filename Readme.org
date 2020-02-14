@@ -1,0 +1,28 @@
+
+* Commentary
+Bitcoin donations gratefully accepted: 1ArFina3Mi8UDghjarGqATeBgXRDWrsmzo
+
+Extra functions for artist-mode
+
+
+* Installation
+
+To make sure you have the most up-to-date version of this library it is best to install 
+using the emacs package system, with the appropriate repository added (e.g https://melpa.org/)
+
+To install without using a package manager:
+
+ - Put the library in a directory in the emacs load path, like ~/.emacs.d/
+ - Add (require 'artist-extras) in your ~/.emacs file
+* Commands & keybindings
+
+ Below is a complete list of commands:
+
+   - *artist-flip-vertically* :
+    Flip/reflect the selected region vertically.\\
+    Keybinding: =M-x artist-flip-vertically=
+   - *artist-flip-horizontally* :
+    Flip/reflect the selected region horizontally.\\
+    Keybinding: =M-x artist-flip-horizontally=
+
+
