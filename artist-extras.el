@@ -6,18 +6,18 @@
 ;; Maintainer: Joe Bloggs <vapniks@yahoo.com>
 ;; Copyleft (Ↄ) 2020, Joe Bloggs, all rites reversed.
 ;; Created: 2020-02-14 16:39:57
-;; Version: 0.1
+;; Version: 0.2
 ;; Last-Updated: Fri Feb 14 16:49:15 2020
 ;;           By: Joe Bloggs
-;;     Update #: 1
+;;     Update #: 2
 ;; URL: https://github.com/vapniks/artist-extras
 ;; Keywords: extensions
 ;; Compatibility: GNU Emacs 25.2.2
-;; Package-Requires: ((artist "1.2.6") (dash "2.17.0") (cl-lib "1.0"))
+;; Package-Requires: ((anaphora "1.0.4") (artist "1.2.6") (cl "1.0") (dash "2.17.0"))
 ;;
 ;; Features that might be required by this library:
 ;;
-;; artist dash
+;; anaphora artist cl dash
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -68,6 +68,10 @@
 ;;  `artist-flip-horizontally'
 ;;    Flip/reflect the selected region horizontally.
 ;;    Keybinding: M-x artist-flip-horizontally
+;;  `artist-rotate'
+;;    Rotate the selected rectangular region 90 degrees.
+;;    With no prefix rotate 90 degrees clockwise, with a single prefix rotate 90 degrees anti-clockwise,
+;;    and with a double prefix rotate 180 degrees.
 ;;
 ;;; Customizable Options:
 ;;
@@ -83,57 +87,121 @@
 ;;; Require
 (require 'artist)
 (require 'dash)
-(eval-when-compile (require 'cl-lib))
+(require 'anaphora)
+(eval-when-compile (require 'cl))
 
 ;;; Code:
 
-(cl-defun artist-swap-chars-in-rect (chr1 chr2 &optional rect (chr3 "¬"))
-  "Swap all occurrences of CHR1 with CHR2 and vice-versa in RECT.
-RECT is a list of strings, i.e. a rectangle."
-  (cl-loop for line in rect
-	   do (setq line
-		    (replace-regexp-in-string (regexp-quote chr1)
-					      chr3
-					      line t t))
-	   do (setq line
-		    (replace-regexp-in-string (regexp-quote chr2)
-					      chr1
-					      line t t))
-	   collect (replace-regexp-in-string (regexp-quote chr3)
-					     chr2
-					     line t t)))
+(defun artist-rotate-chars-in-rect (rect &rest chrs)
+  "Within RECT replace the first char in CHRS with the last char, and each subsequent char its predecessor.
+RECT is a list of strings, i.e. a rectangle. CHRS is a list of integers, strings, or nil's;
+If a member of CHRS is < 8 it is assumed to refer to a member of variable `artist-arrows', other integers refer
+to chars, and strings should be single char strings. If any member of CHRS is nil then no replacement will 
+be done for that char, and the next char will be replaced with \" \"."
+  (let ((strs (mapcar (lambda (c) (if (integerp c)
+				      (if (< c 8)
+					  (awhen (aref artist-arrows c) (char-to-string it))
+					(char-to-string c))
+				    c))
+		      chrs))
+	(tchrs (mapcar 'char-to-string (number-sequence 160 200))))
+    (if (< (length strs) 2)
+	rect
+      (cl-loop for line in rect
+	       for tchr = (cl-loop for chr in tchrs
+				   while (string-match (regexp-quote chr) line)
+				   finally return chr)
+	       for tchr2 = tchr
+	       do (cl-loop for chr in strs
+			   if chr do (setq line (replace-regexp-in-string (regexp-quote chr)
+									  tchr2
+									  line t t)
+					   tchr2 chr)
+			   else do (setq tchr2 " "))
+	       collect (replace-regexp-in-string (regexp-quote tchr)
+						 tchr2
+						 line t t)))))
+
+(defun artist-multirotate-chars-in-rect (rect chrslsts)
+  "For each list of chars in chrslsts, rotate among those chars in RECT.
+CHRSLSTS should be a list of lists of chars as numbers or strings.
+RECT should be a list of strings, i.e. a rectangle.
+See `artist-rotate-chars-in-rect'."
+  (cl-loop for chrs in chrslsts
+	   for rect2 = rect then rect3
+	   for rect3 = (apply 'artist-rotate-chars-in-rect rect2 chrs)
+	   finally return rect3))
 
 ;;;###autoload
 (defun artist-flip-vertically nil
-  "Flip/reflect the selected region vertically."
+  "Flip/reflect the selected rectangular region vertically."
   (interactive)
   (when (use-region-p)
     (let* ((start (region-beginning))
 	   (end (region-end))
-	   (pt (point))
 	   (rect (extract-rectangle start end)))
-      (clear-rectangle start end)
+      (delete-extract-rectangle start end)
       (goto-char start)
-      (insert-rectangle (->> rect reverse
-			     (artist-swap-chars-in-rect "/" "\\")
-			     (artist-swap-chars-in-rect "^" "V")))
+      (insert-rectangle (artist-multirotate-chars-in-rect
+			 (reverse rect)
+			 '(("/" "\\") (2 6) (1 7) (3 5))))
       (setq deactivate-mark nil))))
 
 ;;;###autoload
 (defun artist-flip-horizontally nil
-  "Flip/reflect the selected region horizontally."
+  "Flip/reflect the selected rectangular region horizontally."
   (interactive)
   (when (use-region-p)
     (let* ((start (region-beginning))
 	   (end (region-end))
 	   (rect (extract-rectangle start end)))
-      (clear-rectangle start end)
+      (delete-extract-rectangle start end)
       (goto-char start)
+      (insert-rectangle (artist-multirotate-chars-in-rect
+			 (cl-loop for line in rect collect (reverse line))
+			 (list '("/" "\\") '(0 4) '(1 3) '(5 7)
+			       (list artist-ellipse-left-char artist-ellipse-right-char))))
+      (setq deactivate-mark nil))))
+
+;;;###autoload
+(defun artist-rotate (arg)
+  "Rotate the selected rectangular region 90 degrees.
+With no prefix rotate 90 degrees clockwise, with a single prefix rotate 90 degrees anti-clockwise,
+and with a double prefix rotate 180 degrees."
+  (interactive "p")
+  (when (use-region-p)
+    (let* ((start (region-beginning))
+	   (end (region-end))
+	   (rect (extract-rectangle start end))
+	   (newrect (if (> arg 4)
+			;; 180 degree rotation
+			(artist-multirotate-chars-in-rect
+			 (reverse (mapcar 'reverse rect))
+			 (list '(0 4) '(2 6) '(1 5) '(3 7)
+			       (list artist-ellipse-left-char artist-ellipse-right-char)))
+		      ;; reflection about diagonal (\)
+		      (let ((rect2 (mapcar (lambda (_)
+					     (let ((tp rect))
+					       (mapconcat
+						(lambda (_)
+						  (prog1
+						      (substring-no-properties (car tp) 0 1)
+						    (setf (car tp) (substring-no-properties (car tp) 1))
+						    (setq tp (cdr tp))))
+						rect nil)))
+					   (string-to-list (car rect)))))
+			(if (= arg 1)
+			    ;; 90 degree clockwise rotation TODO!!
+			    (artist-multirotate-chars-in-rect
+			     (mapcar 'reverse rect2)
+			     '(("|" "-") ("/" "\\") (6 4 2 0) (7 5 3 1)))
+			  ;; 90 degree anti-clockwise rotation TODO!!
+			  (artist-multirotate-chars-in-rect
+			   (reverse rect2)
+			   '(("|" "-") ("/" "\\") (0 2 4 6) (1 3 5 7))))))))
+      (delete-extract-rectangle start end)
       (goto-char start)
-      (insert-rectangle (cl-loop for line in (->> rect
-						  (artist-swap-chars-in-rect "<" ">")
-						  (artist-swap-chars-in-rect "/" "\\"))
-				 collect (reverse line)))
+      (insert-rectangle newrect)
       (setq deactivate-mark nil))))
 
 ;;;###autoload

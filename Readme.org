@@ -24,5 +24,7 @@ To install without using a package manager:
    - *artist-flip-horizontally* :
     Flip/reflect the selected region horizontally.\\
     Keybinding: =M-x artist-flip-horizontally=
-
+   - *artist-rotate* :
+    Rotate the selected rectangular region 90 degrees.\\
+    Keybinding: =M-x artist-rotate=
 
