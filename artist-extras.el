@@ -40,20 +40,20 @@
 ;; If not, see <http://www.gnu.org/licenses/>.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Commentary: 
-;; 
+;;; Commentary:
+;;
 ;; Bitcoin donations gratefully accepted: 1ArFina3Mi8UDghjarGqATeBgXRDWrsmzo
-;; 
+;;
 ;; Extra functions for artist-mode
-;; 
-;; 
+;;
+;;
 ;;; Installation
-;; 
-;; To make sure you have the most up-to-date version of this library it is best to install 
+;;
+;; To make sure you have the most up-to-date version of this library it is best to install
 ;; using the emacs package system, with the appropriate repository added (e.g https://melpa.org/)
-;; 
+;;
 ;; To install without using a package manager:
-;; 
+;;
 ;;  - Put the library in a directory in the emacs load path, like ~/.emacs.d/
 ;;  - Add (require 'artist-extras) in your ~/.emacs file
 ;;;;;;;;
@@ -64,14 +64,15 @@
 ;;
 ;;  `artist-flip-vertically'
 ;;    Flip/reflect the selected region vertically.
-;;    Keybinding: M-x artist-flip-vertically
+;;    Keybinding: C-c C-a -
 ;;  `artist-flip-horizontally'
 ;;    Flip/reflect the selected region horizontally.
-;;    Keybinding: M-x artist-flip-horizontally
+;;    Keybinding: C-c C-a |
 ;;  `artist-rotate'
 ;;    Rotate the selected rectangular region 90 degrees.
 ;;    With no prefix rotate 90 degrees clockwise, with a single prefix rotate 90 degrees anti-clockwise,
 ;;    and with a double prefix rotate 180 degrees.
+;;    Keybinding: C-c C-a @
 ;;
 ;;; Customizable Options:
 ;;
@@ -92,11 +93,27 @@
 
 ;;; Code:
 
+(define-key artist-menu-map [flip-vertically]
+  '(menu-item "Flip vertically" artist-flip-vertically
+	      :help "Flip/reflect the selected rectangular region vertically."))
+(define-key artist-mode-map "\C-c\C-a-" 'artist-flip-vertically)
+
+(define-key artist-menu-map [flip-horizontally]
+  '(menu-item "Flip horizontally" artist-flip-horizontally
+	      :help "Flip/reflect the selected rectangular region horizontally."))
+(define-key artist-mode-map "\C-c\C-a|" 'artist-flip-horizontally)
+
+(define-key artist-menu-map [rotate]
+  '(menu-item "Rotate 90 degrees" artist-rotate
+	      :help "Rotate the selected rectangular region 90 degrees."))
+(define-key artist-mode-map "\C-c\C-a@" 'artist-rotate)
+
+
 (defun artist-rotate-chars-in-rect (rect &rest chrs)
   "Within RECT replace the first char in CHRS with the last char, and each subsequent char its predecessor.
 RECT is a list of strings, i.e. a rectangle. CHRS is a list of integers, strings, or nil's;
 If a member of CHRS is < 8 it is assumed to refer to a member of variable `artist-arrows', other integers refer
-to chars, and strings should be single char strings. If any member of CHRS is nil then no replacement will 
+to chars, and strings should be single char strings. If any member of CHRS is nil then no replacement will
 be done for that char, and the next char will be replaced with \" \"."
   (let ((strs (mapcar (lambda (c) (if (integerp c)
 				      (if (< c 8)
@@ -104,7 +121,8 @@ be done for that char, and the next char will be replaced with \" \"."
 					(char-to-string c))
 				    c))
 		      chrs))
-	(tchrs (mapcar 'char-to-string (number-sequence 160 200))))
+	(tchrs (mapcar 'char-to-string (number-sequence 160 200)))
+	(case-fold-search nil))
     (if (< (length strs) 2)
 	rect
       (cl-loop for line in rect

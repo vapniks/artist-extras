@@ -20,11 +20,11 @@ To install without using a package manager:
 
    - *artist-flip-vertically* :
     Flip/reflect the selected region vertically.\\
-    Keybinding: =M-x artist-flip-vertically=
+    Keybinding: =C-c C-a -=
    - *artist-flip-horizontally* :
     Flip/reflect the selected region horizontally.\\
-    Keybinding: =M-x artist-flip-horizontally=
+    Keybinding: =C-c C-a |=
    - *artist-rotate* :
     Rotate the selected rectangular region 90 degrees.\\
-    Keybinding: =M-x artist-rotate=
+    Keybinding: =C-c C-a @=
 
